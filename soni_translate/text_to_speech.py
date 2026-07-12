@@ -983,15 +983,15 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
 
         try:
             generator = pipeline(text, voice=voice, speed=1.0)
-            for _, sr, audio in generator:
+            for _, _, audio in generator:  # (graphemes, phonemes, audio) — sr is fixed 24000
                 write_chunked(
                     file=filename,
-                    samplerate=sr,
+                    samplerate=24000,
                     data=audio,
                     format="ogg",
                     subtype="vorbis",
                 )
-                break  # Take first chunk only
+                break
             verify_saved_file_and_size(filename)
         except Exception as error:
             logger.error(f"Kokoro failed for segment: {error}")
