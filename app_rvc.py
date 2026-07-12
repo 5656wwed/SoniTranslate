@@ -119,15 +119,13 @@ directories = [
 class TTS_Info:
     def __init__(self, piper_enabled, xtts_enabled):
         self.list_edge = edge_tts_voices_list()
-        self.list_bark = list(BARK_VOICES_LIST.keys())
-        self.list_vits = list(VITS_VOICES_LIST.keys())
-        self.list_openai_tts = OPENAI_TTS_MODELS
+        self.list_bark = []  # hidden
+        self.list_vits = []  # hidden
+        self.list_openai_tts = []  # hidden
         self.list_kokoro = list(KOKORO_VOICES_LIST.keys())
         self.list_pocket_tts = list(POCKET_TTS_VOICES_LIST.keys())
-        self.piper_enabled = piper_enabled
-        self.list_vits_onnx = (
-            piper_tts_voices_list() if self.piper_enabled else []
-        )
+        self.piper_enabled = False  # disabled
+        self.list_vits_onnx = []  # hidden
         self.xtts_enabled = xtts_enabled
 
     def tts_list(self):
