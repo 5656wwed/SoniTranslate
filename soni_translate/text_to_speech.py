@@ -978,13 +978,19 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
             logger.info(f"Loading Kokoro pipeline for lang={lang_code}")
             pipeline = KPipeline(lang_code=lang_code)
 
-        filename = f"audio/{start}.wav"
+        filename = f"audio/{start}.ogg"
         logger.info(f"Kokoro [{voice}]: {text[:60]}... → {filename}")
 
         try:
             generator = pipeline(text, voice=voice, speed=1.0)
-            for _, _, audio in generator:
-                sf.write(filename, audio, 24000)
+            for _, sr, audio in generator:
+                write_chunked(
+                    file=filename,
+                    samplerate=sr,
+                    data=audio,
+                    format="ogg",
+                    subtype="vorbis",
+                )
                 break  # Take first chunk only
             verify_saved_file_and_size(filename)
         except Exception as error:
