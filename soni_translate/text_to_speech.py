@@ -1000,48 +1000,34 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
 
 
 def segments_pocket_tts(filtered_pocket_segments, TRANSLATE_AUDIO_TO):
-    """Generate TTS using Pocket TTS — CPU-only, fast, 6 languages."""
-    from pocket_tts import PocketTTS
+    """Generate TTS using Pocket TTS — CPU-only, uses CLI (v2.x compatible)."""
     from .language_configuration import POCKET_TTS_VOICES_LIST
 
     filtered_segments = filtered_pocket_segments["segments"]
     sorted_segments = sorted(filtered_segments, key=lambda x: x["tts_name"])
-
-    tts_engine = None
-    current_key = None
 
     for segment in tqdm(sorted_segments):
         text = segment["text"]
         start = segment["start"]
         tts_name = segment["tts_name"]
 
-        # Parse language:voice from the voice list
-        lang_voice = POCKET_TTS_VOICES_LIST.get(tts_name, "english:alba")
-        language, voice = lang_voice.split(":")
-
-        # Recreate engine if language changes
-        if lang_voice != current_key:
-            current_key = lang_voice
-            if tts_engine is not None:
-                del tts_engine
-                gc.collect()
-            tts_engine = PocketTTS(language=language)
-
+        voice = POCKET_TTS_VOICES_LIST.get(tts_name, "alba")
         filename = f"audio/{start}.wav"
+
         logger.info(f"Pocket TTS: {text[:50]}... → {filename}")
 
         try:
-            tts_engine.generate(
-                text=text,
-                voice=voice,
-                output_path=filename
+            result = subprocess.run(
+                ["pocket-tts", "generate", "--text", text,
+                 "--voice", voice, "--output", filename],
+                capture_output=True, text=True, timeout=60
             )
+            if result.returncode != 0:
+                raise TTS_OperationError(f"Pocket TTS failed: {result.stderr}")
             verify_saved_file_and_size(filename)
         except Exception as error:
             error_handling_in_tts(error, segment, TRANSLATE_AUDIO_TO, filename)
 
-    if tts_engine is not None:
-        del tts_engine
     gc.collect()
 
 

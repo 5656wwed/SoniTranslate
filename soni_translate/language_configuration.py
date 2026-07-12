@@ -538,16 +538,11 @@ KOKORO_VOICES_LIST = {
 }
 
 # === POCKET TTS ===
-# Format: language:voice_name (colon-separated)
-# Pocket TTS runs on CPU, lightweight, fast (~6x real-time)
+# Pocket TTS v2.x uses CLI: pocket-tts generate --text "..." --voice "..." --output "..."
+# English only in v2.x. Uses subprocess for compatibility.
 POCKET_TTS_VOICES_LIST = {
-    "en-Pocket-alba Pocket-TTS": "english:alba",
-    "en-Pocket-anna Pocket-TTS": "english:anna",
-    "fr-Pocket-estelle Pocket-TTS": "french:estelle",
-    "de-Pocket-juergen Pocket-TTS": "german:juergen",
-    "it-Pocket-giovanni Pocket-TTS": "italian:giovanni",
-    "es-Pocket-lola Pocket-TTS": "spanish:lola",
-    "pt-Pocket-rafael Pocket-TTS": "portuguese:rafael",
+    "en-Pocket-alba Pocket-TTS": "alba",
+    "en-Pocket-anna Pocket-TTS": "anna",
 }
 
 LANGUAGE_CODE_IN_THREE_LETTERS = {
