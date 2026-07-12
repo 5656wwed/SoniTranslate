@@ -505,6 +505,51 @@ OPENAI_TTS_MODELS = [
     ">shimmer HD OpenAI-TTS"
 ]
 
+# === KOKORO TTS ===
+# Format: lang_code:voice_name (colon-separated)
+# Kokoro is lightweight (~300MB), GPU-accelerated, excellent quality
+KOKORO_VOICES_LIST = {
+    "en-Kokoro-af_heart Kokoro": "a:af_heart",
+    "en-Kokoro-af_bella Kokoro": "a:af_bella",
+    "en-Kokoro-af_nicole Kokoro": "a:af_nicole",
+    "en-Kokoro-af_sky Kokoro": "a:af_sky",
+    "en-Kokoro-af_sarah Kokoro": "a:af_sarah",
+    "en-Kokoro-am_adam Kokoro": "a:am_adam",
+    "en-Kokoro-am_michael Kokoro": "a:am_michael",
+    "en-Kokoro-bf_emma Kokoro": "b:bf_emma",
+    "en-Kokoro-bf_isabella Kokoro": "b:bf_isabella",
+    "en-Kokoro-bm_george Kokoro": "b:bm_george",
+    "en-Kokoro-bm_lewis Kokoro": "b:bm_lewis",
+    "hi-Kokoro-hf_alpha Kokoro": "h:hf_alpha",
+    "hi-Kokoro-hf_beta Kokoro": "h:hf_beta",
+    "hi-Kokoro-hm_omega Kokoro": "h:hm_omega",
+    "hi-Kokoro-hm_psi Kokoro": "h:hm_psi",
+    "es-Kokoro-ef_dora Kokoro": "e:ef_dora",
+    "es-Kokoro-em_alex Kokoro": "e:em_alex",
+    "fr-Kokoro-ff_siwis Kokoro": "f:ff_siwis",
+    "it-Kokoro-if_sara Kokoro": "i:if_sara",
+    "it-Kokoro-im_nicola Kokoro": "i:im_nicola",
+    "pt-Kokoro-pf_dora Kokoro": "p:pf_dora",
+    "pt-Kokoro-pm_alex Kokoro": "p:pm_alex",
+    "ja-Kokoro-jf_alpha Kokoro": "j:jf_alpha",
+    "ja-Kokoro-jm_omega Kokoro": "j:jm_omega",
+    "zh-Kokoro-zf_xiaobei Kokoro": "z:zf_xiaobei",
+    "zh-Kokoro-zm_yunjian Kokoro": "z:zm_yunjian",
+}
+
+# === POCKET TTS ===
+# Format: language:voice_name (colon-separated)
+# Pocket TTS runs on CPU, lightweight, fast (~6x real-time)
+POCKET_TTS_VOICES_LIST = {
+    "en-Pocket-alba Pocket-TTS": "english:alba",
+    "en-Pocket-anna Pocket-TTS": "english:anna",
+    "fr-Pocket-estelle Pocket-TTS": "french:estelle",
+    "de-Pocket-juergen Pocket-TTS": "german:juergen",
+    "it-Pocket-giovanni Pocket-TTS": "italian:giovanni",
+    "es-Pocket-lola Pocket-TTS": "spanish:lola",
+    "pt-Pocket-rafael Pocket-TTS": "portuguese:rafael",
+}
+
 LANGUAGE_CODE_IN_THREE_LETTERS = {
     "Automatic detection": "aut",
     "ar": "ara",

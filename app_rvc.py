@@ -40,6 +40,8 @@ from soni_translate.language_configuration import (
     BARK_VOICES_LIST,
     VITS_VOICES_LIST,
     OPENAI_TTS_MODELS,
+    KOKORO_VOICES_LIST,
+    POCKET_TTS_VOICES_LIST,
 )
 from soni_translate.utils import (
     remove_files,
@@ -120,6 +122,8 @@ class TTS_Info:
         self.list_bark = list(BARK_VOICES_LIST.keys())
         self.list_vits = list(VITS_VOICES_LIST.keys())
         self.list_openai_tts = OPENAI_TTS_MODELS
+        self.list_kokoro = list(KOKORO_VOICES_LIST.keys())
+        self.list_pocket_tts = list(POCKET_TTS_VOICES_LIST.keys())
         self.piper_enabled = piper_enabled
         self.list_vits_onnx = (
             piper_tts_voices_list() if self.piper_enabled else []
@@ -135,6 +139,8 @@ class TTS_Info:
             + self.list_bark
             + self.list_vits
             + self.list_openai_tts
+            + self.list_kokoro
+            + self.list_pocket_tts
             + self.list_vits_onnx
         )
         return list_tts
