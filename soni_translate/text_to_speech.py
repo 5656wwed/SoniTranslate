@@ -1009,6 +1009,53 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
 
 
 # =====================================
+# POCKET TTS
+# =====================================
+
+
+def segments_pocket_tts(filtered_pocket_segments, TRANSLATE_AUDIO_TO):
+    """Pocket TTS — CPU-only, English, uses CLI (v2.x compatible)."""
+    from .language_configuration import POCKET_TTS_VOICES_LIST
+    import shutil
+
+    pocket_bin = shutil.which("pocket-tts")
+    if not pocket_bin:
+        venv = os.path.join(os.path.dirname(sys.executable), "pocket-tts")
+        pocket_bin = venv if os.path.exists(venv) else "pocket-tts"
+
+    logger.info(f"Pocket TTS binary: {pocket_bin}")
+
+    for segment in tqdm(sorted(
+        filtered_pocket_segments["segments"],
+        key=lambda x: x["tts_name"]
+    )):
+        text = segment["text"]
+        start = segment["start"]
+        tts_name = segment["tts_name"]
+        voice = POCKET_TTS_VOICES_LIST.get(tts_name, "alba")
+        filename = f"audio/{start}.ogg"
+
+        logger.info(f"Pocket TTS [{voice}]: {text[:60]}... → {filename}")
+
+        try:
+            result = subprocess.run(
+                [pocket_bin, "generate", "--text", text,
+                 "--voice", voice, "--output", filename],
+                capture_output=True, text=True, timeout=120
+            )
+            if result.returncode != 0:
+                raise TTS_OperationError(
+                    f"exit {result.returncode}: {result.stderr[:200]}"
+                )
+            verify_saved_file_and_size(filename)
+        except Exception as error:
+            logger.error(f"Pocket TTS failed: {error}")
+            error_handling_in_tts(error, segment, TRANSLATE_AUDIO_TO, filename)
+
+    gc.collect()
+
+
+# =====================================
 # Select task TTS
 # =====================================
 
@@ -1093,6 +1140,7 @@ def audio_segmentation_to_voice(
     pattern_vits_onnx = re.compile(r".* VITS-onnx$")
     pattern_openai_tts = re.compile(r".* OpenAI-TTS$")
     pattern_kokoro = re.compile(r".* Kokoro$")
+    pattern_pocket_tts = re.compile(r".* Pocket-TTS$")
     
 
     all_segments = result_diarize["segments"]
@@ -1108,6 +1156,7 @@ def audio_segmentation_to_voice(
         pattern_openai_tts, speaker_to_voice, all_segments
     )
     speakers_kokoro = find_spkr(pattern_kokoro, speaker_to_voice, all_segments)
+    speakers_pocket_tts = find_spkr(pattern_pocket_tts, speaker_to_voice, all_segments)
     
 
     # Filter method in segments
@@ -1118,6 +1167,7 @@ def audio_segmentation_to_voice(
     filtered_vits_onnx = filter_by_speaker(speakers_vits_onnx, all_segments)
     filtered_openai_tts = filter_by_speaker(speakers_openai_tts, all_segments)
     filtered_kokoro = filter_by_speaker(speakers_kokoro, all_segments)
+    filtered_pocket_tts = filter_by_speaker(speakers_pocket_tts, all_segments)
     
 
     # Infer
@@ -1151,6 +1201,9 @@ def audio_segmentation_to_voice(
     if filtered_kokoro["segments"]:
         logger.info(f"Kokoro TTS: {speakers_kokoro}")
         segments_kokoro_tts(filtered_kokoro, TRANSLATE_AUDIO_TO)  # wav
+    if filtered_pocket_tts["segments"]:
+        logger.info(f"Pocket TTS: {speakers_pocket_tts}")
+        segments_pocket_tts(filtered_pocket_tts, TRANSLATE_AUDIO_TO)
 
 
     [result.pop("tts_name", None) for result in result_diarize["segments"]]

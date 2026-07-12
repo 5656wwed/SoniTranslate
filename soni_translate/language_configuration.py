@@ -537,6 +537,13 @@ KOKORO_VOICES_LIST = {
     "zh-Kokoro-zm_yunjian Kokoro": "z:zm_yunjian",
 }
 
+# === POCKET TTS ===
+# English-only in v2.x. Uses subprocess (CLI) for compatibility.
+POCKET_TTS_VOICES_LIST = {
+    "en-Pocket-alba Pocket-TTS": "alba",
+    "en-Pocket-anna Pocket-TTS": "anna",
+}
+
 LANGUAGE_CODE_IN_THREE_LETTERS = {
     "Automatic detection": "aut",
     "ar": "ara",
