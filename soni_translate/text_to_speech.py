@@ -1079,6 +1079,7 @@ def audio_segmentation_to_voice(
 ):
 
     remove_directory_contents("audio")
+    create_directories(["audio"])
 
     # Mapping speakers to voice variables
     speaker_to_voice = {
