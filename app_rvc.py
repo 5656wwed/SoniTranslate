@@ -41,7 +41,6 @@ from soni_translate.language_configuration import (
     VITS_VOICES_LIST,
     OPENAI_TTS_MODELS,
     KOKORO_VOICES_LIST,
-    POCKET_TTS_VOICES_LIST,
 )
 from soni_translate.utils import (
     remove_files,
@@ -123,7 +122,6 @@ class TTS_Info:
         self.list_vits = []  # hidden
         self.list_openai_tts = []  # hidden
         self.list_kokoro = list(KOKORO_VOICES_LIST.keys())
-        self.list_pocket_tts = list(POCKET_TTS_VOICES_LIST.keys())
         self.piper_enabled = False  # disabled
         self.list_vits_onnx = []  # hidden
         self.xtts_enabled = xtts_enabled
@@ -138,7 +136,6 @@ class TTS_Info:
             + self.list_vits
             + self.list_openai_tts
             + self.list_kokoro
-            + self.list_pocket_tts
             + self.list_vits_onnx
         )
         return list_tts
