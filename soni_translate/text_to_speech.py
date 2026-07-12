@@ -1040,7 +1040,8 @@ def segments_pocket_tts(filtered_pocket_segments, TRANSLATE_AUDIO_TO):
         try:
             result = subprocess.run(
                 [pocket_bin, "generate", "--text", text,
-                 "--voice", voice, "-o", filename],
+                 "--voice", voice, "--output-path", filename,
+                 "--device", "cpu", "--quiet"],
                 capture_output=True, text=True, timeout=120
             )
             if result.returncode != 0:
