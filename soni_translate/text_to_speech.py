@@ -24,6 +24,7 @@ import soundfile as sf
 import platform
 import logging
 import traceback
+import sys
 from .logging_setup import logger
 
 
@@ -974,10 +975,11 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
                 del pipeline
                 gc.collect()
                 torch.cuda.empty_cache()
+            logger.info(f"Loading Kokoro pipeline for lang={lang_code}")
             pipeline = KPipeline(lang_code=lang_code)
 
         filename = f"audio/{start}.wav"
-        logger.info(f"Kokoro: {text[:50]}... → {filename}")
+        logger.info(f"Kokoro [{voice}]: {text[:60]}... → {filename}")
 
         try:
             generator = pipeline(text, voice=voice, speed=1.0)
@@ -986,6 +988,7 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
                 break  # Take first chunk only
             verify_saved_file_and_size(filename)
         except Exception as error:
+            logger.error(f"Kokoro failed for segment: {error}")
             error_handling_in_tts(error, segment, TRANSLATE_AUDIO_TO, filename)
 
     if pipeline is not None:
@@ -1002,6 +1005,19 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
 def segments_pocket_tts(filtered_pocket_segments, TRANSLATE_AUDIO_TO):
     """Generate TTS using Pocket TTS — CPU-only, uses CLI (v2.x compatible)."""
     from .language_configuration import POCKET_TTS_VOICES_LIST
+    import shutil
+
+    # Find pocket-tts binary (respect uv venv)
+    pocket_tts_bin = shutil.which("pocket-tts")
+    if not pocket_tts_bin:
+        # Fall back to venv path
+        venv_bin = os.path.join(os.path.dirname(sys.executable), "pocket-tts")
+        if os.path.exists(venv_bin):
+            pocket_tts_bin = venv_bin
+        else:
+            pocket_tts_bin = "pocket-tts"  # last resort
+
+    logger.info(f"Pocket TTS binary: {pocket_tts_bin}")
 
     filtered_segments = filtered_pocket_segments["segments"]
     sorted_segments = sorted(filtered_segments, key=lambda x: x["tts_name"])
@@ -1014,18 +1030,22 @@ def segments_pocket_tts(filtered_pocket_segments, TRANSLATE_AUDIO_TO):
         voice = POCKET_TTS_VOICES_LIST.get(tts_name, "alba")
         filename = f"audio/{start}.wav"
 
-        logger.info(f"Pocket TTS: {text[:50]}... → {filename}")
+        logger.info(f"Pocket TTS [{voice}]: {text[:60]}... → {filename}")
 
         try:
             result = subprocess.run(
-                ["pocket-tts", "generate", "--text", text,
+                [pocket_tts_bin, "generate", "--text", text,
                  "--voice", voice, "--output", filename],
-                capture_output=True, text=True, timeout=60
+                capture_output=True, text=True, timeout=120,
+                env={**os.environ, "HF_HUB_ENABLE_HF_TRANSFER": "0"}
             )
             if result.returncode != 0:
-                raise TTS_OperationError(f"Pocket TTS failed: {result.stderr}")
+                raise TTS_OperationError(
+                    f"Pocket TTS failed (exit {result.returncode}): {result.stderr[:200]}"
+                )
             verify_saved_file_and_size(filename)
         except Exception as error:
+            logger.error(f"Pocket TTS failed: {error}")
             error_handling_in_tts(error, segment, TRANSLATE_AUDIO_TO, filename)
 
     gc.collect()
