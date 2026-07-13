@@ -1331,11 +1331,13 @@ def accelerate_segments(
                 pass
 
         # Apply aceleration
+        dest_dir = f"{folder_output}{os.sep}audio"
         if acc_percentage == 1.0:
             if use_trimmed:
-                copy_files(trimmed_file, f"{folder_output}{os.sep}audio")
+                # Already in the right place, no copy needed
+                pass
             elif info_enc == "OGG":
-                copy_files(filename, f"{folder_output}{os.sep}audio")
+                copy_files(filename, dest_dir)
             else:
                 os.system(
                     f"ffmpeg -y -loglevel panic -i {filename} "
