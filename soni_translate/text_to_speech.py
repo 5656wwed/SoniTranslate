@@ -987,7 +987,7 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
         logger.info(f"Kokoro [{voice}]: {text[:60]}... → {filename}")
 
         try:
-            generator = pipeline(text, voice=voice, speed=0.90)  # 0.90 = warmer
+            generator = pipeline(text, voice=voice, speed=0.93)  # 0.90 = warmer
             for _, _, audio in generator:  # (graphemes, phonemes, audio) — sr is fixed 24000
                 write_chunked(
                     file=filename,
