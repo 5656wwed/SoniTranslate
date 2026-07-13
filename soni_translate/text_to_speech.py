@@ -1101,38 +1101,13 @@ def _get_zonos_speaker(voice_name):
 
     if os.path.exists(drive_voice):
         logger.info(f"Loading Zonos speaker from Drive: {voice_name}")
+        import torch
         _ZONOS_SPEAKER = torch.load(drive_voice, map_location="cuda", weights_only=True)
         return _ZONOS_SPEAKER
 
-    elif _ZONOS_SPEAKER is not None:
-        return _ZONOS_SPEAKER
-
-    else:
-        # Check Drive for uploaded voice
-        drive_sample = os.path.join(_ZONOS_DRIVE_PATH, "voice_sample.wav")
-        if os.path.exists(drive_sample):
-            import torchaudio
-            wav, sr = torchaudio.load(drive_sample)
-            wav = wav.to("cuda")
-            model = _load_zonos_model()
-            with torch.cuda.device(0):
-                _ZONOS_SPEAKER = model.make_speaker_embedding(wav, sr)
-            logger.info("Loaded Zonos speaker from Drive voice_sample.wav")
-            return _ZONOS_SPEAKER
-
-        # Fall back to built-in default
-        default_voice = os.path.join(
-            os.path.dirname(__file__), "..", "assets", "zonos_default.wav"
-        )
-        if os.path.exists(default_voice):
-            wav, sr = torchaudio.load(default_voice)
-            model = _load_zonos_model()
-            _ZONOS_SPEAKER = model.make_speaker_embedding(wav, sr)
-            return _ZONOS_SPEAKER
-
-        raise TTS_OperationError(
-            "No Zonos voice sample found. Upload one via the UI first."
-        )
+    raise TTS_OperationError(
+        "No Zonos voice found. Run Step 2.5 in Colab to upload a voice sample first."
+    )
 
 
 def segments_zonos_tts(filtered_zonos_segments, TRANSLATE_AUDIO_TO):
