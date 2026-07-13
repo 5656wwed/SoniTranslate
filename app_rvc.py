@@ -405,18 +405,18 @@ class SoniTranslate(SoniTrCache):
         target_language="English (en)",
         min_speakers=1,
         max_speakers=1,
-        tts_voice00="en-US-EmmaMultilingualNeural-Female",
-        tts_voice01="en-US-AndrewMultilingualNeural-Male",
-        tts_voice02="en-US-AvaMultilingualNeural-Female",
-        tts_voice03="en-US-BrianMultilingualNeural-Male",
-        tts_voice04="de-DE-SeraphinaMultilingualNeural-Female",
-        tts_voice05="de-DE-FlorianMultilingualNeural-Male",
-        tts_voice06="fr-FR-VivienneMultilingualNeural-Female",
-        tts_voice07="fr-FR-RemyMultilingualNeural-Male",
-        tts_voice08="en-US-EmmaMultilingualNeural-Female",
-        tts_voice09="en-US-AndrewMultilingualNeural-Male",
-        tts_voice10="en-US-EmmaMultilingualNeural-Female",
-        tts_voice11="en-US-AndrewMultilingualNeural-Male",
+        tts_voice00="en-Kokoro-af_heart Kokoro",
+        tts_voice01="en-Kokoro-am_adam Kokoro",
+        tts_voice02="en-Kokoro-af_heart Kokoro",
+        tts_voice03="en-Kokoro-am_adam Kokoro",
+        tts_voice04="en-Kokoro-af_heart Kokoro",
+        tts_voice05="en-Kokoro-am_adam Kokoro",
+        tts_voice06="en-Kokoro-af_heart Kokoro",
+        tts_voice07="en-Kokoro-am_adam Kokoro",
+        tts_voice08="en-Kokoro-af_heart Kokoro",
+        tts_voice09="en-Kokoro-am_adam Kokoro",
+        tts_voice10="en-Kokoro-af_heart Kokoro",
+        tts_voice11="en-Kokoro-am_adam Kokoro",
         video_output_name="",
         mix_method_audio="Adjusting volumes and mixing audio",
         max_accelerate_audio=2.1,
@@ -1275,7 +1275,7 @@ class SoniTranslate(SoniTrCache):
         directory_input="",  # doc path
         origin_language="English (en)",
         target_language="English (en)",
-        tts_voice00="en-US-EmmaMultilingualNeural-Female",
+        tts_voice00="en-Kokoro-af_heart Kokoro",
         name_final_file="",
         translate_process="google_translator",
         output_type="audio",
@@ -1555,84 +1555,84 @@ def create_gui(theme, logs_in_gui=False):
 
                     tts_voice00 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="en-US-EmmaMultilingualNeural-Female",
+                        value="en-Kokoro-af_heart Kokoro",
                         label=lg_conf["sk1"],
                         visible=True,
                         interactive=True,
                     )
                     tts_voice01 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="en-US-AndrewMultilingualNeural-Male",
+                        value="en-Kokoro-am_adam Kokoro",
                         label=lg_conf["sk2"],
                         visible=True,
                         interactive=True,
                     )
                     tts_voice02 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="en-US-AvaMultilingualNeural-Female",
+                        value="en-Kokoro-af_heart Kokoro",
                         label=lg_conf["sk3"],
                         visible=False,
                         interactive=True,
                     )
                     tts_voice03 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="en-US-BrianMultilingualNeural-Male",
+                        value="en-Kokoro-am_adam Kokoro",
                         label=lg_conf["sk4"],
                         visible=False,
                         interactive=True,
                     )
                     tts_voice04 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="de-DE-SeraphinaMultilingualNeural-Female",
+                        value="en-Kokoro-af_heart Kokoro",
                         label=lg_conf["sk4"],
                         visible=False,
                         interactive=True,
                     )
                     tts_voice05 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="de-DE-FlorianMultilingualNeural-Male",
+                        value="en-Kokoro-am_adam Kokoro",
                         label=lg_conf["sk6"],
                         visible=False,
                         interactive=True,
                     )
                     tts_voice06 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="fr-FR-VivienneMultilingualNeural-Female",
+                        value="en-Kokoro-af_heart Kokoro",
                         label=lg_conf["sk7"],
                         visible=False,
                         interactive=True,
                     )
                     tts_voice07 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="fr-FR-RemyMultilingualNeural-Male",
+                        value="en-Kokoro-am_adam Kokoro",
                         label=lg_conf["sk8"],
                         visible=False,
                         interactive=True,
                     )
                     tts_voice08 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="en-US-EmmaMultilingualNeural-Female",
+                        value="en-Kokoro-af_heart Kokoro",
                         label=lg_conf["sk9"],
                         visible=False,
                         interactive=True,
                     )
                     tts_voice09 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="en-US-AndrewMultilingualNeural-Male",
+                        value="en-Kokoro-am_adam Kokoro",
                         label=lg_conf["sk10"],
                         visible=False,
                         interactive=True,
                     )
                     tts_voice10 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="en-US-EmmaMultilingualNeural-Female",
+                        value="en-Kokoro-af_heart Kokoro",
                         label=lg_conf["sk11"],
                         visible=False,
                         interactive=True,
                     )
                     tts_voice11 = gr.Dropdown(
                         SoniTr.tts_info.tts_list(),
-                        value="en-US-AndrewMultilingualNeural-Male",
+                        value="en-Kokoro-am_adam Kokoro",
                         label=lg_conf["sk12"],
                         visible=False,
                         interactive=True,
@@ -2043,8 +2043,8 @@ def create_gui(theme, logs_in_gui=False):
                                 "English (en)",
                                 1,
                                 2,
-                                "en-CA-ClaraNeural-Female",
-                                "en-AU-WilliamNeural-Male",
+                                "en-Kokoro-af_heart Kokoro",
+                                "en-Kokoro-am_adam Kokoro",
                             ],
                         ],  # no update
                         fn=SoniTr.batch_multilingual_media_conversion,
@@ -2140,7 +2140,7 @@ def create_gui(theme, logs_in_gui=False):
                                         SoniTr.tts_info.tts_list(),
                                     )
                                 ),
-                                value="en-US-EmmaMultilingualNeural-Female",
+                                value="en-Kokoro-af_heart Kokoro",
                                 label="TTS",
                                 visible=True,
                                 interactive=True,
