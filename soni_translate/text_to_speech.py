@@ -1113,9 +1113,10 @@ def _get_zonos_speaker(voice_name):
         if os.path.exists(drive_sample):
             import torchaudio
             wav, sr = torchaudio.load(drive_sample)
-            wav = wav.to("cuda")  # Match model device
+            wav = wav.to("cuda")
             model = _load_zonos_model()
-            _ZONOS_SPEAKER = model.make_speaker_embedding(wav, sr)
+            with torch.cuda.device(0):
+                _ZONOS_SPEAKER = model.make_speaker_embedding(wav, sr)
             logger.info("Loaded Zonos speaker from Drive voice_sample.wav")
             return _ZONOS_SPEAKER
 
@@ -1140,7 +1141,7 @@ def segments_zonos_tts(filtered_zonos_segments, TRANSLATE_AUDIO_TO):
     import torch
 
     model = _load_zonos_model()
-    voice_name = "default"  # Single Zonos embedding for all speakers
+    voice_name = "default"
 
     speaker = _get_zonos_speaker(voice_name)
 
@@ -1152,7 +1153,6 @@ def segments_zonos_tts(filtered_zonos_segments, TRANSLATE_AUDIO_TO):
         start = segment["start"]
         filename = f"audio/{start}.ogg"
 
-        # Clean text
         import re as _re
         text = _re.sub(r'\.(\s+[A-Za-z])', r'\1', text)
         text = _re.sub(r'\s+', ' ', text).strip()
