@@ -345,11 +345,11 @@ class SoniTranslate(SoniTrCache):
 
         media_file_arg = kwargs[0] if kwargs[0] is not None else []
 
-        link_media_arg = kwargs[1]
+        link_media_arg = kwargs[1] or ""
         link_media_arg = [x.strip() for x in link_media_arg.split(',')]
         link_media_arg = get_link_list(link_media_arg)
 
-        path_arg = kwargs[2]
+        path_arg = kwargs[2] or ""
         path_arg = [x.strip() for x in path_arg.split(',')]
         path_arg = get_valid_files(path_arg)
 
