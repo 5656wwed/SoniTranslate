@@ -979,10 +979,14 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
             pipeline = KPipeline(lang_code=lang_code)
 
         filename = f"audio/{start}.ogg"
+        # Clean text: fix stray periods from translation (e.g. "a. museum" → "a museum")
+        import re as _re
+        text = _re.sub(r'(?<=\s)\.(?=\s)', '', text)  # remove periods between words
+        text = _re.sub(r'\s+', ' ', text).strip()  # collapse spaces
         logger.info(f"Kokoro [{voice}]: {text[:60]}... → {filename}")
 
         try:
-            generator = pipeline(text, voice=voice, speed=1.0)
+            generator = pipeline(text, voice=voice, speed=0.95)  # 0.95 = warmer, less sharp
             for _, _, audio in generator:  # (graphemes, phonemes, audio) — sr is fixed 24000
                 write_chunked(
                     file=filename,
