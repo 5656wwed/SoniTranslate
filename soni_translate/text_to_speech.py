@@ -982,7 +982,7 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
         # Clean text: remove stray periods from translation
         # Pattern: "word." at sentence boundary → keep. "a. museum" → remove.
         import re as _re
-        text = _re.sub(r'\.(\s+[a-z])', r'\1', text)  # remove period before lowercase word
+        text = _re.sub(r'\.(\s+[A-Za-z])', r'\1', text)  # remove period before any word
         text = _re.sub(r'\s+', ' ', text).strip()
         logger.info(f"Kokoro [{voice}]: {text[:60]}... → {filename}")
 
