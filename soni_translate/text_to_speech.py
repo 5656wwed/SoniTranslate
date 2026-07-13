@@ -1113,6 +1113,7 @@ def _get_zonos_speaker(voice_name):
         if os.path.exists(drive_sample):
             import torchaudio
             wav, sr = torchaudio.load(drive_sample)
+            wav = wav.to("cuda")  # Match model device
             model = _load_zonos_model()
             _ZONOS_SPEAKER = model.make_speaker_embedding(wav, sr)
             logger.info("Loaded Zonos speaker from Drive voice_sample.wav")
