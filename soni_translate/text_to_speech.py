@@ -1139,8 +1139,7 @@ def segments_zonos_tts(filtered_zonos_segments, TRANSLATE_AUDIO_TO):
     import torch
 
     model = _load_zonos_model()
-    voice_name = list(filtered_zonos_segments["speakers"].values())[0] \
-        if filtered_zonos_segments["speakers"] else "default"
+    voice_name = "default"  # Single Zonos embedding for all speakers
 
     speaker = _get_zonos_speaker(voice_name)
 
