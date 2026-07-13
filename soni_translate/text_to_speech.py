@@ -987,8 +987,12 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
         logger.info(f"Kokoro [{voice}]: {text[:60]}... → {filename}")
 
         try:
-            generator = pipeline(text, voice=voice, speed=0.93)  # 0.90 = warmer
+            generator = pipeline(text, voice=voice, speed=0.93)  # 0.93 = warmer
             for _, _, audio in generator:  # (graphemes, phonemes, audio) — sr is fixed 24000
+                # Trim leading & trailing silence for cleaner timing
+                audio_trimmed, _ = librosa.effects.trim(audio, top_db=25)
+                if len(audio_trimmed) > 0:
+                    audio = audio_trimmed
                 write_chunked(
                     file=filename,
                     samplerate=24000,
@@ -1312,44 +1316,12 @@ def accelerate_segments(
         else:
             info_enc = "OGG"
 
-        # ── Trim edge silence (smoother speed adjustment) ──
-        trimmed_file = f"{folder_output}/{filename}"
-        use_trimmed = False
-        if acc_percentage != 1.0:
-            try:
-                y, sr = librosa.load(filename, sr=None)
-                y_trimmed, _ = librosa.effects.trim(y, top_db=25)
-                if len(y_trimmed) < len(y) * 0.98:
-                    sf.write(trimmed_file, y_trimmed, sr)
-                    duration_tts = len(y_trimmed) / sr
-                    acc_percentage = duration_tts / duration_true
-                    acc_percentage = round(acc_percentage + 0.0, 1)
-                    acc_percentage = max(0.5, min(2.0, acc_percentage))
-                    use_trimmed = True
-                    logger.debug(f"Trimmed edge silence, new acc: {acc_percentage}")
-            except Exception:
-                pass
-
-        # Apply aceleration
-        dest_dir = f"{folder_output}{os.sep}audio"
-        if acc_percentage == 1.0:
-            if use_trimmed:
-                # Already in the right place, no copy needed
-                pass
-            elif info_enc == "OGG":
-                copy_files(filename, dest_dir)
-            else:
-                os.system(
-                    f"ffmpeg -y -loglevel panic -i {filename} "
-                    f"-filter:a atempo={acc_percentage} "
-                    f"{folder_output}/{filename}"
-                )
+        # Apply aceleration or opposite to the audio file in folder_output folder
+        if acc_percentage == 1.0 and info_enc == "OGG":
+            copy_files(filename, f"{folder_output}{os.sep}audio")
         else:
-            input_file = trimmed_file if use_trimmed else filename
             os.system(
-                f"ffmpeg -y -loglevel panic -i {input_file} "
-                f"-filter:a atempo={acc_percentage} "
-                f"{folder_output}/{filename}"
+                f"ffmpeg -y -loglevel panic -i {filename} -filter:a atempo={acc_percentage} {folder_output}/{filename}"
             )
 
         if logger.isEnabledFor(logging.DEBUG):
