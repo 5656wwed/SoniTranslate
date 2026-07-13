@@ -544,6 +544,12 @@ POCKET_TTS_VOICES_LIST = {
     "en-Pocket-anna Pocket-TTS": "anna",
 }
 
+# === ZONOS TTS ===
+# High-quality voice cloning (~3.2GB VRAM). Preset voices stored in Google Drive.
+ZONOS_VOICES_LIST = {
+    "en-Zonos-Default Zonos-TTS": "default",
+}
+
 LANGUAGE_CODE_IN_THREE_LETTERS = {
     "Automatic detection": "aut",
     "ar": "ara",

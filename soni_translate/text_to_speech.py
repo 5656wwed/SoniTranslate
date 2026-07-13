@@ -1066,6 +1066,116 @@ def segments_pocket_tts(filtered_pocket_segments, TRANSLATE_AUDIO_TO):
 
 
 # =====================================
+# ZONOS TTS
+# =====================================
+
+
+# Global Zonos model (lazy-loaded, shared across segments)
+_ZONOS_MODEL = None
+_ZONOS_SPEAKER = None
+_ZONOS_DRIVE_PATH = "/content/drive/MyDrive/zonos_voices"
+
+
+def _load_zonos_model():
+    """Lazy-load the Zonos model once."""
+    global _ZONOS_MODEL
+    if _ZONOS_MODEL is None:
+        from zonos.model import Zonos
+        from zonos.utils import DEFAULT_DEVICE
+
+        logger.info("Loading Zonos model (first time, ~30s)...")
+        _ZONOS_MODEL = Zonos.from_pretrained(
+            "Zyphra/Zonos-v0.1-transformer",
+            device="cuda"
+        )
+        logger.info("Zonos model loaded")
+    return _ZONOS_MODEL
+
+
+def _get_zonos_speaker(voice_name):
+    """Get speaker embedding from Drive or use default."""
+    global _ZONOS_SPEAKER
+    import torch
+
+    drive_voice = os.path.join(_ZONOS_DRIVE_PATH, f"{voice_name}.pt")
+
+    if os.path.exists(drive_voice):
+        logger.info(f"Loading Zonos speaker from Drive: {voice_name}")
+        _ZONOS_SPEAKER = torch.load(drive_voice, map_location="cuda", weights_only=True)
+        return _ZONOS_SPEAKER
+
+    elif _ZONOS_SPEAKER is not None:
+        return _ZONOS_SPEAKER
+
+    else:
+        # Use built-in default asset
+        import torchaudio
+        default_voice = os.path.join(
+            os.path.dirname(__file__), "..", "assets", "zonos_default.wav"
+        )
+        if os.path.exists(default_voice):
+            wav, sr = torchaudio.load(default_voice)
+            model = _load_zonos_model()
+            _ZONOS_SPEAKER = model.make_speaker_embedding(wav, sr)
+            return _ZONOS_SPEAKER
+
+        raise TTS_OperationError(
+            "No Zonos voice sample found. Upload one via the UI first."
+        )
+
+
+def segments_zonos_tts(filtered_zonos_segments, TRANSLATE_AUDIO_TO):
+    """Zonos TTS — high-quality voice cloning."""
+    from zonos.conditioning import make_cond_dict
+    import torch
+
+    model = _load_zonos_model()
+    voice_name = list(filtered_zonos_segments["speakers"].values())[0] \
+        if filtered_zonos_segments["speakers"] else "default"
+
+    speaker = _get_zonos_speaker(voice_name)
+
+    for segment in tqdm(sorted(
+        filtered_zonos_segments["segments"],
+        key=lambda x: x["tts_name"]
+    )):
+        text = segment["text"]
+        start = segment["start"]
+        filename = f"audio/{start}.ogg"
+
+        # Clean text
+        import re as _re
+        text = _re.sub(r'\.(\s+[A-Za-z])', r'\1', text)
+        text = _re.sub(r'\s+', ' ', text).strip()
+
+        logger.info(f"Zonos: {text[:60]}... → {filename}")
+
+        try:
+            cond_dict = make_cond_dict(
+                text=text, speaker=speaker, language="en-us"
+            )
+            conditioning = model.prepare_conditioning(cond_dict)
+            codes = model.generate(conditioning)
+            wavs = model.autoencoder.decode(codes).cpu()
+
+            audio = wavs.squeeze(0).numpy()
+            write_chunked(
+                file=filename,
+                samplerate=44000,
+                data=audio,
+                format="ogg",
+                subtype="vorbis",
+            )
+            verify_saved_file_and_size(filename)
+        except Exception as error:
+            logger.error(f"Zonos failed: {error}")
+            error_handling_in_tts(error, segment, TRANSLATE_AUDIO_TO, filename)
+
+    torch.cuda.empty_cache()
+    gc.collect()
+
+
+# =====================================
 # Select task TTS
 # =====================================
 
@@ -1150,6 +1260,7 @@ def audio_segmentation_to_voice(
     pattern_vits_onnx = re.compile(r".* VITS-onnx$")
     pattern_openai_tts = re.compile(r".* OpenAI-TTS$")
     pattern_kokoro = re.compile(r".* Kokoro$")
+    pattern_zonos = re.compile(r".* Zonos-TTS$")
     pattern_pocket_tts = re.compile(r".* Pocket-TTS$")
     
 
@@ -1166,6 +1277,7 @@ def audio_segmentation_to_voice(
         pattern_openai_tts, speaker_to_voice, all_segments
     )
     speakers_kokoro = find_spkr(pattern_kokoro, speaker_to_voice, all_segments)
+    speakers_zonos = find_spkr(pattern_zonos, speaker_to_voice, all_segments)
     speakers_pocket_tts = find_spkr(pattern_pocket_tts, speaker_to_voice, all_segments)
     
 
@@ -1177,6 +1289,7 @@ def audio_segmentation_to_voice(
     filtered_vits_onnx = filter_by_speaker(speakers_vits_onnx, all_segments)
     filtered_openai_tts = filter_by_speaker(speakers_openai_tts, all_segments)
     filtered_kokoro = filter_by_speaker(speakers_kokoro, all_segments)
+    filtered_zonos = filter_by_speaker(speakers_zonos, all_segments)
     filtered_pocket_tts = filter_by_speaker(speakers_pocket_tts, all_segments)
     
 
@@ -1211,6 +1324,9 @@ def audio_segmentation_to_voice(
     if filtered_kokoro["segments"]:
         logger.info(f"Kokoro TTS: {speakers_kokoro}")
         segments_kokoro_tts(filtered_kokoro, TRANSLATE_AUDIO_TO)  # wav
+    if filtered_zonos["segments"]:
+        logger.info(f"Zonos TTS: {speakers_zonos}")
+        segments_zonos_tts(filtered_zonos, TRANSLATE_AUDIO_TO)
     if filtered_pocket_tts["segments"]:
         logger.info(f"Pocket TTS: {speakers_pocket_tts}")
         segments_pocket_tts(filtered_pocket_tts, TRANSLATE_AUDIO_TO)

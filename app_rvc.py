@@ -4,7 +4,16 @@ from soni_translate.logging_setup import (
     set_logging_level,
     configure_logging_libs,
 ); configure_logging_libs() # noqa
-import whisperx
+# Lazy import — skip if not transcribing
+whisperx = None
+
+
+def _get_whisperx():
+    global whisperx
+    if whisperx is None:
+        import whisperx as _wx
+        whisperx = _wx
+    return whisperx
 import torch
 import os
 from soni_translate.audio_segments import create_translated_audio
@@ -42,6 +51,7 @@ from soni_translate.language_configuration import (
     OPENAI_TTS_MODELS,
     KOKORO_VOICES_LIST,
     POCKET_TTS_VOICES_LIST,
+    ZONOS_VOICES_LIST,
 )
 from soni_translate.utils import (
     remove_files,
@@ -124,6 +134,7 @@ class TTS_Info:
         self.list_openai_tts = []  # hidden
         self.list_kokoro = list(KOKORO_VOICES_LIST.keys())
         self.list_pocket_tts = list(POCKET_TTS_VOICES_LIST.keys())
+        self.list_zonos = list(ZONOS_VOICES_LIST.keys())
         self.piper_enabled = False
         self.list_vits_onnx = []  # hidden
         self.xtts_enabled = xtts_enabled
@@ -138,6 +149,7 @@ class TTS_Info:
             + self.list_vits
             + self.list_openai_tts
             + self.list_kokoro
+            + self.list_zonos
             + self.list_pocket_tts
             + self.list_vits_onnx
         )
@@ -695,7 +707,7 @@ class SoniTranslate(SoniTrCache):
                     prog_disp(
                         "From SRT file...", 0.30, is_gui, progress=progress
                     )
-                    audio = whisperx.load_audio(
+                    audio = _get_whisperx().load_audio(
                         base_audio_wav if not self.vocals else self.vocals
                     )
                     self.result = srt_file_to_segments(subtitle_file)
