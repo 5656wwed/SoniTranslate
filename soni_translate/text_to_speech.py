@@ -1108,8 +1108,17 @@ def _get_zonos_speaker(voice_name):
         return _ZONOS_SPEAKER
 
     else:
-        # Use built-in default asset
-        import torchaudio
+        # Check Drive for uploaded voice
+        drive_sample = os.path.join(_ZONOS_DRIVE_PATH, "voice_sample.wav")
+        if os.path.exists(drive_sample):
+            import torchaudio
+            wav, sr = torchaudio.load(drive_sample)
+            model = _load_zonos_model()
+            _ZONOS_SPEAKER = model.make_speaker_embedding(wav, sr)
+            logger.info("Loaded Zonos speaker from Drive voice_sample.wav")
+            return _ZONOS_SPEAKER
+
+        # Fall back to built-in default
         default_voice = os.path.join(
             os.path.dirname(__file__), "..", "assets", "zonos_default.wav"
         )
