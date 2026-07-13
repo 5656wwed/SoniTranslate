@@ -341,10 +341,17 @@ class SoniTranslate(SoniTrCache):
         path_arg = [x.strip() for x in path_arg.split(',')]
         path_arg = get_valid_files(path_arg)
 
-        edit_text_arg = kwargs[31]
-        get_text_arg = kwargs[32]
+        # Find is_gui — always the last bool in kwargs
+        is_gui_arg = False
+        for item in reversed(kwargs):
+            if isinstance(item, bool):
+                is_gui_arg = item
+                break
 
-        is_gui_arg = kwargs[-1]
+        # Find edit/get text flags (booleans near the end, before is_gui)
+        bools = [i for i, v in enumerate(kwargs) if isinstance(v, bool)]
+        edit_text_arg = kwargs[bools[-3]] if len(bools) >= 3 else False
+        get_text_arg = kwargs[bools[-2]] if len(bools) >= 2 else False
 
         kwargs = kwargs[3:]
 
@@ -437,6 +444,8 @@ class SoniTranslate(SoniTrCache):
         enable_cache=True,
         custom_voices=False,
         custom_voices_workers=1,
+        skip_transcription=False,
+        custom_srt_file=None,
         is_gui=False,
         progress=gr.Progress(),
     ):
@@ -473,6 +482,16 @@ class SoniTranslate(SoniTrCache):
 
         if media_file is None:
             media_file = ""
+
+        # Handle custom SRT file (skip transcription mode)
+        if skip_transcription and custom_srt_file:
+            if isinstance(custom_srt_file, str):
+                subtitle_file = custom_srt_file
+            elif hasattr(custom_srt_file, 'name'):
+                subtitle_file = custom_srt_file.name
+            logger.info(f"Using custom SRT file, skipping transcription: {subtitle_file}")
+            if not media_file:
+                raise ValueError("A video file is required when using custom SRT.")
 
         if not origin_language:
             origin_language = "Automatic detection"
@@ -773,7 +792,12 @@ class SoniTranslate(SoniTrCache):
                     except Exception as error:
                         logger.error(str(error))
 
-            if not self.task_in_cache("diarize", [
+            if skip_transcription and subtitle_file:
+                # Use provided SRT directly, skip Whisper transcription
+                logger.info("Skipping transcription, using SRT file directly")
+                self.result_diarize = srt_file_to_segments(subtitle_file)
+                self.result_source_lang = copy.deepcopy(self.result_diarize)
+            elif not self.task_in_cache("diarize", [
                 min_speakers,
                 max_speakers,
                 YOUR_HF_TOKEN[:len(YOUR_HF_TOKEN)//2],
@@ -794,7 +818,7 @@ class SoniTranslate(SoniTrCache):
                 logger.debug("Diarize complete")
             self.result_source_lang = copy.deepcopy(self.result_diarize)
 
-            if not self.task_in_cache("translate", [
+            if not skip_transcription and not self.task_in_cache("translate", [
                 TRANSLATE_AUDIO_TO,
                 translate_process
             ], {
@@ -1644,6 +1668,18 @@ def create_gui(theme, logs_in_gui=False):
                         ],
                     )
 
+                    # ── Skip transcription: use custom SRT ──
+                    skip_transcription_checkbox = gr.Checkbox(
+                        label="Skip transcription, use my SRT file",
+                        value=False,
+                        info="Upload a pre-translated SRT file instead of auto-transcribing"
+                    )
+                    custom_srt_upload = gr.File(
+                        label="Custom SRT File (pre-translated)",
+                        file_types=[".srt"],
+                        visible=True,
+                    )
+
                     with gr.Column():
                         with gr.Accordion(
                             lg_conf["vc_title"],
@@ -2051,6 +2087,18 @@ def create_gui(theme, logs_in_gui=False):
                             max_speakers,
                             tts_voice00,
                             tts_voice01,
+                            tts_voice02,
+                            tts_voice03,
+                            tts_voice04,
+                            tts_voice05,
+                            tts_voice06,
+                            tts_voice07,
+                            tts_voice08,
+                            tts_voice09,
+                            tts_voice10,
+                            tts_voice11,
+                            skip_transcription_checkbox,
+                            custom_srt_upload,
                         ],
                         outputs=[video_output],
                         cache_examples=False,
