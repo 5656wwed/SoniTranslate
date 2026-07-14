@@ -602,7 +602,7 @@ class SoniTranslate(SoniTrCache):
             media_file = "audio_support.wav"
             if not get_video_from_text_json:
                 remove_files(media_file)
-                srt_data = srt_file_to_segments(subtitle_file)
+                srt_data = srt_file_to_segments(subtitle_file, speaker=True)
                 total_duration = srt_data["segments"][-1]["end"] + 30.
                 support_audio = AudioSegment.silent(
                     duration=int(total_duration * 1000)
@@ -733,7 +733,7 @@ class SoniTranslate(SoniTrCache):
                     audio = _get_whisperx().load_audio(
                         base_audio_wav if not self.vocals else self.vocals
                     )
-                    self.result = srt_file_to_segments(subtitle_file)
+                    self.result = srt_file_to_segments(subtitle_file, speaker=True)
                     self.result["language"] = SOURCE_LANGUAGE
                     # SRT mode: use the provided segments directly for dubbing (no translate)
                     self.result_diarize = self.result.copy()
