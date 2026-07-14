@@ -1082,46 +1082,25 @@ def _load_zonos_model():
     Loads from Drive if pre-downloaded, otherwise from HuggingFace."""
     global _ZONOS_MODEL
     if _ZONOS_MODEL is None:
-
-def _ensure_mamba_stub():
-    import os, sys
-    try:
-        import mamba_ssm
-        return  # already works
-    except ImportError:
-        pass
-
-    # Find the site-packages for current python
-    for p in sys.path:
-        if "site-packages" in p and os.path.isdir(p):
-            target = os.path.join(p, "mamba_ssm", "utils")
-            os.makedirs(target, exist_ok=True)
-            # create __init__.py files
-            with open(os.path.join(os.path.dirname(target), "__init__.py"), "w") as f: pass
-            with open(os.path.join(target, "__init__.py"), "w") as f: pass
-            with open(os.path.join(target, "generation.py"), "w") as f:
-                f.write("""from dataclasses import dataclass, field
-from typing import Optional
-from torch import Tensor
-
-@dataclass
-class InferenceParams:
-    max_seqlen: int
-    max_batch_size: int
-    seqlen_offset: int = 0
-    batch_size_offset: int = 0
-    key_value_memory_dict: dict = field(default_factory=dict)
-    lengths_per_sample: Optional[Tensor] = None
-""")
-            print("[Zonos] Created mamba_ssm stub for transformer model")
-            break
-
-_ensure_mamba_stub()
+        # Create mamba_ssm stub on the fly (old Zonos checkout imports it even for transformer)
+        import os, sys
+        try:
+            import mamba_ssm
+        except ImportError:
+            for p in sys.path:
+                if "site-packages" in p and os.path.isdir(p):
+                    target = os.path.join(p, "mamba_ssm", "utils")
+                    os.makedirs(target, exist_ok=True)
+                    open(os.path.join(os.path.dirname(target), "__init__.py"), "w").close()
+                    open(os.path.join(target, "__init__.py"), "w").close()
+                    with open(os.path.join(target, "generation.py"), "w") as f:
+                        f.write("from dataclasses import dataclass, field\nfrom typing import Optional\nfrom torch import Tensor\n\n@dataclass\nclass InferenceParams:\n    max_seqlen: int\n    max_batch_size: int\n    seqlen_offset: int = 0\n    batch_size_offset: int = 0\n    key_value_memory_dict: dict = field(default_factory=dict)\n    lengths_per_sample: Optional[Tensor] = None\n")
+                    print("[Zonos] mamba_ssm stub created (runtime)")
+                    break
 
         from zonos.model import Zonos
         from zonos.utils import DEFAULT_DEVICE
 
-        # Check if model is on Drive (pre-downloaded)
         model_path = "Zyphra/Zonos-v0.1-transformer"
         if os.path.exists(os.path.join(_ZONOS_MODEL_DRIVE, "config.json")):
             model_path = _ZONOS_MODEL_DRIVE
@@ -1132,7 +1111,6 @@ _ensure_mamba_stub()
         _ZONOS_MODEL = Zonos.from_pretrained(model_path, device="cuda")
         logger.info("Zonos model loaded")
     return _ZONOS_MODEL
-
 
 def _get_zonos_speaker(voice_name):
     """Get speaker embedding from Drive or use default."""
