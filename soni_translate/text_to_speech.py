@@ -1095,14 +1095,14 @@ def _load_zonos_model():
                     open(os.path.join(base, "__init__.py"), "w").close()
                     open(os.path.join(base, "utils", "__init__.py"), "w").close()
                     open(os.path.join(base, "models", "__init__.py"), "w").close()
-                    open(os.path.join(base, "models", "mixer_seq_simple", "__init__.py"), "w").close()
+                    
 
                     # Minimal InferenceParams
                     with open(os.path.join(base, "utils", "generation.py"), "w") as f:
                         f.write("from dataclasses import dataclass, field\nfrom typing import Optional\nfrom torch import Tensor\n\n@dataclass\nclass InferenceParams:\n    max_seqlen: int\n    max_batch_size: int\n    seqlen_offset: int = 0\n    batch_size_offset: int = 0\n    key_value_memory_dict: dict = field(default_factory=dict)\n    lengths_per_sample: Optional[Tensor] = None\n")
 
                     # Dummy create_block so the import succeeds
-                    with open(os.path.join(base, "models", "mixer_seq_simple", "mixer_seq_simple.py"), "w") as f:
+                    with open(os.path.join(base, "models", "mixer_seq_simple", "__init__.py"), "w") as f:
                         f.write("def create_block(*a, **k):\n    class Dummy:\n        def __init__(self,*a,**k):pass\n        def forward(self,x,**k):return x\n    return Dummy()\n")
 
                     print("[Zonos] mamba_ssm stub created (runtime, full)")
