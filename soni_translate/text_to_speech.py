@@ -1082,6 +1082,42 @@ def _load_zonos_model():
     Loads from Drive if pre-downloaded, otherwise from HuggingFace."""
     global _ZONOS_MODEL
     if _ZONOS_MODEL is None:
+
+def _ensure_mamba_stub():
+    import os, sys
+    try:
+        import mamba_ssm
+        return  # already works
+    except ImportError:
+        pass
+
+    # Find the site-packages for current python
+    for p in sys.path:
+        if "site-packages" in p and os.path.isdir(p):
+            target = os.path.join(p, "mamba_ssm", "utils")
+            os.makedirs(target, exist_ok=True)
+            # create __init__.py files
+            with open(os.path.join(os.path.dirname(target), "__init__.py"), "w") as f: pass
+            with open(os.path.join(target, "__init__.py"), "w") as f: pass
+            with open(os.path.join(target, "generation.py"), "w") as f:
+                f.write("""from dataclasses import dataclass, field
+from typing import Optional
+from torch import Tensor
+
+@dataclass
+class InferenceParams:
+    max_seqlen: int
+    max_batch_size: int
+    seqlen_offset: int = 0
+    batch_size_offset: int = 0
+    key_value_memory_dict: dict = field(default_factory=dict)
+    lengths_per_sample: Optional[Tensor] = None
+""")
+            print("[Zonos] Created mamba_ssm stub for transformer model")
+            break
+
+_ensure_mamba_stub()
+
         from zonos.model import Zonos
         from zonos.utils import DEFAULT_DEVICE
 
