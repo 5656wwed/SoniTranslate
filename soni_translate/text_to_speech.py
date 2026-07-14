@@ -1285,10 +1285,7 @@ def audio_segmentation_to_voice(
     for segment in result_diarize["segments"]:
         if "speaker" not in segment:
             segment["speaker"] = "SPEAKER_00"
-            logger.warning(
-                "NO SPEAKER DETECT IN SEGMENT: First TTS will be used in the"
-                f" segment time {segment['start'], segment['text']}"
-            )
+            logger.debug("No speaker in segment, using first available voice")
         # Assign the TTS name
         segment["tts_name"] = speaker_to_voice[segment["speaker"]]
 
