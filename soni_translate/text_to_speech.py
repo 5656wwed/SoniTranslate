@@ -1143,14 +1143,14 @@ def _load_zonos_model():
         except ImportError:
             DEFAULT_DEVICE = "cuda"
 
-        model_path = "Zyphra/Zonos-v0.1-transformer"
         if os.path.exists(os.path.join(_ZONOS_MODEL_DRIVE, "config.json")):
-            model_path = _ZONOS_MODEL_DRIVE
+            config_path = os.path.join(_ZONOS_MODEL_DRIVE, "config.json")
+            weights_path = os.path.join(_ZONOS_MODEL_DRIVE, "model.safetensors")
             logger.info("Loading Zonos model from Drive...")
+            _ZONOS_MODEL = Zonos.from_local(config_path, weights_path, device="cuda")
         else:
             logger.info("Loading Zonos model (downloading 3GB, one time)...")
-
-        _ZONOS_MODEL = Zonos.from_pretrained(model_path, device="cuda")
+            _ZONOS_MODEL = Zonos.from_pretrained("Zyphra/Zonos-v0.1-transformer", device="cuda")
         logger.info("Zonos model loaded")
     return _ZONOS_MODEL
 
