@@ -1086,7 +1086,7 @@ def _load_zonos_model():
         from zonos.utils import DEFAULT_DEVICE
 
         # Check if model is on Drive (pre-downloaded)
-        model_path = "Zyphra/Zonos-v0.1-transformer"
+        model_path = "Zyphra/Zonos-v0.1-hybrid"
         if os.path.exists(os.path.join(_ZONOS_MODEL_DRIVE, "config.json")):
             model_path = _ZONOS_MODEL_DRIVE
             logger.info("Loading Zonos model from Drive...")
