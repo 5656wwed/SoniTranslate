@@ -1074,20 +1074,26 @@ def segments_pocket_tts(filtered_pocket_segments, TRANSLATE_AUDIO_TO):
 _ZONOS_MODEL = None
 _ZONOS_SPEAKER = None
 _ZONOS_DRIVE_PATH = "/content/drive/MyDrive/zonos_voices"
+_ZONOS_MODEL_DRIVE = "/content/drive/MyDrive/zonos_model"
 
 
 def _load_zonos_model():
-    """Lazy-load the Zonos model once."""
+    """Lazy-load the Zonos model once.
+    Loads from Drive if pre-downloaded, otherwise from HuggingFace."""
     global _ZONOS_MODEL
     if _ZONOS_MODEL is None:
         from zonos.model import Zonos
         from zonos.utils import DEFAULT_DEVICE
 
-        logger.info("Loading Zonos model (first time, ~30s)...")
-        _ZONOS_MODEL = Zonos.from_pretrained(
-            "Zyphra/Zonos-v0.1-transformer",
-            device="cuda"
-        )
+        # Check if model is on Drive (pre-downloaded)
+        model_path = "Zyphra/Zonos-v0.1-transformer"
+        if os.path.exists(os.path.join(_ZONOS_MODEL_DRIVE, "config.json")):
+            model_path = _ZONOS_MODEL_DRIVE
+            logger.info("Loading Zonos model from Drive...")
+        else:
+            logger.info("Loading Zonos model (downloading 3GB, one time)...")
+
+        _ZONOS_MODEL = Zonos.from_pretrained(model_path, device="cuda")
         logger.info("Zonos model loaded")
     return _ZONOS_MODEL
 
