@@ -1,3 +1,14 @@
+# Monkey-patch for pyannote + huggingface_hub>=1.0 (use_auth_token → token)
+import huggingface_hub as _hf
+if hasattr(_hf, "hf_hub_download"):
+    _orig = _hf.hf_hub_download
+    def _patched(*a, **kw):
+        if "use_auth_token" in kw:
+            kw["token"] = kw.pop("use_auth_token")
+        return _orig(*a, **kw)
+    _hf.hf_hub_download = _patched
+# End patch
+
 import gradio as gr
 from soni_translate.logging_setup import (
     logger,
