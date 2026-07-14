@@ -735,6 +735,8 @@ class SoniTranslate(SoniTrCache):
                     )
                     self.result = srt_file_to_segments(subtitle_file)
                     self.result["language"] = SOURCE_LANGUAGE
+                    # SRT mode: use the provided segments directly for dubbing (no translate)
+                    self.result_diarize = self.result.copy()
                 else:
                     prog_disp(
                         "Transcribing...", 0.30, is_gui, progress=progress
@@ -830,7 +832,34 @@ class SoniTranslate(SoniTrCache):
                     logger.debug("Diarize complete")
             self.result_source_lang = copy.deepcopy(self.result_diarize)
 
-            if not self.task_in_cache("translate", [
+            if subtitle_file:
+                # SRT provided → text is final, skip translation entirely
+                logger.info("Using provided SRT text directly (no translation)")
+            elif not self.task_in_cache("translate", [
+                TRANSLATE_AUDIO_TO,
+                translate_process
+            ], {
+                "result_diarize": self.result_diarize
+            }):
+                prog_disp("Translating...", 0.70, is_gui, progress=progress)
+                lang_source = (
+                    self.align_language
+                    if self.align_language
+                    else SOURCE_LANGUAGE
+                )
+                self.result_diarize["segments"] = translate_text(
+                    self.result_diarize["segments"],
+                    TRANSLATE_AUDIO_TO,
+                    translate_process,
+                    chunk_size=1800,
+                    source=lang_source,
+                )
+                logger.debug("Translation complete")
+                logger.debug(self.result_diarize)
+            if subtitle_file:
+                # SRT mode: text in SRT is the final dubbing text
+                logger.info("SRT mode - skipping translation, using provided text")
+            elif not self.task_in_cache("translate", [
                 TRANSLATE_AUDIO_TO,
                 translate_process
             ], {
