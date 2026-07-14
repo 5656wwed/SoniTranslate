@@ -1082,31 +1082,57 @@ def _load_zonos_model():
     Loads from Drive if pre-downloaded, otherwise from HuggingFace."""
     global _ZONOS_MODEL
     if _ZONOS_MODEL is None:
-        # Create mamba_ssm stub (covers both utils and models that Zonos imports)
-        import os, sys
-        try:
-            import mamba_ssm
-        except ImportError:
-            for p in sys.path:
-                if "site-packages" in p and os.path.isdir(p):
-                    base = os.path.join(p, "mamba_ssm")
-                    os.makedirs(os.path.join(base, "utils"), exist_ok=True)
-                    os.makedirs(os.path.join(base, "models", "mixer_seq_simple"), exist_ok=True)
-                    open(os.path.join(base, "__init__.py"), "w").close()
-                    open(os.path.join(base, "utils", "__init__.py"), "w").close()
-                    open(os.path.join(base, "models", "__init__.py"), "w").close()
-                    
+        # Comprehensive mamba_ssm stub using sys.modules (this checkout imports many mamba submodules)
+        import sys, types
+        if 'mamba_ssm' not in sys.modules:
+            mamba = types.ModuleType('mamba_ssm')
+            sys.modules['mamba_ssm'] = mamba
 
-                    # Minimal InferenceParams
-                    with open(os.path.join(base, "utils", "generation.py"), "w") as f:
-                        f.write("from dataclasses import dataclass, field\nfrom typing import Optional\nfrom torch import Tensor\n\n@dataclass\nclass InferenceParams:\n    max_seqlen: int\n    max_batch_size: int\n    seqlen_offset: int = 0\n    batch_size_offset: int = 0\n    key_value_memory_dict: dict = field(default_factory=dict)\n    lengths_per_sample: Optional[Tensor] = None\n")
+            # utils.generation
+            utils = types.ModuleType('mamba_ssm.utils')
+            gen = types.ModuleType('mamba_ssm.utils.generation')
+            from dataclasses import dataclass, field
+            from typing import Optional
+            from torch import Tensor
+            @dataclass
+            class InferenceParams:
+                max_seqlen: int
+                max_batch_size: int
+                seqlen_offset: int = 0
+                batch_size_offset: int = 0
+                key_value_memory_dict: dict = field(default_factory=dict)
+                lengths_per_sample: Optional[Tensor] = None
+            gen.InferenceParams = InferenceParams
+            sys.modules['mamba_ssm.utils'] = utils
+            sys.modules['mamba_ssm.utils.generation'] = gen
+            mamba.utils = utils
 
-                    # Dummy create_block so the import succeeds
-                    with open(os.path.join(base, "models", "mixer_seq_simple", "__init__.py"), "w") as f:
-                        f.write("def create_block(*a, **k):\n    class Dummy:\n        def __init__(self,*a,**k):pass\n        def forward(self,x,**k):return x\n    return Dummy()\n")
+            # models.mixer_seq_simple
+            models = types.ModuleType('mamba_ssm.models')
+            mixer = types.ModuleType('mamba_ssm.models.mixer_seq_simple')
+            def create_block(*a, **k):
+                class DummyBlock:
+                    def __init__(self, *a, **k): pass
+                    def forward(self, x, **k): return x
+                return DummyBlock()
+            mixer.create_block = create_block
+            sys.modules['mamba_ssm.models'] = models
+            sys.modules['mamba_ssm.models.mixer_seq_simple'] = mixer
+            mamba.models = models
 
-                    print("[Zonos] mamba_ssm stub created (runtime, full)")
-                    break
+            # ops.triton.layer_norm
+            ops = types.ModuleType('mamba_ssm.ops')
+            triton = types.ModuleType('mamba_ssm.ops.triton')
+            ln = types.ModuleType('mamba_ssm.ops.triton.layer_norm')
+            def layer_norm_fn(x, *a, **k):
+                return x
+            ln.layer_norm_fn = layer_norm_fn
+            sys.modules['mamba_ssm.ops'] = ops
+            sys.modules['mamba_ssm.ops.triton'] = triton
+            sys.modules['mamba_ssm.ops.triton.layer_norm'] = ln
+            mamba.ops = ops
+
+            print("[Zonos] mamba_ssm stub created (sys.modules, comprehensive)")
 
         from zonos.model import Zonos
         from zonos.utils import DEFAULT_DEVICE
