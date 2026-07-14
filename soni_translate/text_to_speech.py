@@ -1147,7 +1147,21 @@ def _load_zonos_model():
             config_path = os.path.join(_ZONOS_MODEL_DRIVE, "config.json")
             weights_path = os.path.join(_ZONOS_MODEL_DRIVE, "model.safetensors")
             logger.info("Loading Zonos model from Drive...")
-            _ZONOS_MODEL = Zonos.from_local(config_path, weights_path, device="cuda")
+
+            # Copy to local SSD first — Drive FUSE reads are extremely slow for 3GB+ files
+            local_dir = "/content/zonos_model_local"
+            os.makedirs(local_dir, exist_ok=True)
+            local_config = os.path.join(local_dir, "config.json")
+            local_weights = os.path.join(local_dir, "model.safetensors")
+
+            if not os.path.exists(local_weights) or os.path.getsize(local_weights) < 3_000_000_000:
+                logger.info("Copying model files from Drive to local disk (this can take 5-20 minutes the first time)...")
+                import shutil
+                shutil.copy2(config_path, local_config)
+                shutil.copy2(weights_path, local_weights)
+                logger.info("Copy complete. Now loading into GPU memory...")
+
+            _ZONOS_MODEL = Zonos.from_local(local_config, local_weights, device="cuda")
         else:
             logger.info("Loading Zonos model (downloading 3GB, one time)...")
             _ZONOS_MODEL = Zonos.from_pretrained("Zyphra/Zonos-v0.1-transformer", device="cuda")
