@@ -386,6 +386,9 @@ def diarize_speech(
         as the first speaker, eliminating the need for diarization inference.
     """
 
+    if model_name is None or str(model_name) == "disable" or "disable" in str(model_name):
+        return result
+
     if max(min_speakers, max_speakers) > 1 and model_name:
         try:
 

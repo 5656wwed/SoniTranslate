@@ -1,12 +1,22 @@
 # Monkey-patch for pyannote + huggingface_hub>=1.0 (use_auth_token → token)
 import huggingface_hub as _hf
-if hasattr(_hf, "hf_hub_download"):
-    _orig = _hf.hf_hub_download
-    def _patched(*a, **kw):
+
+def _make_safe(fn):
+    def _wrapped(*a, **kw):
         if "use_auth_token" in kw:
             kw["token"] = kw.pop("use_auth_token")
-        return _orig(*a, **kw)
-    _hf.hf_hub_download = _patched
+        return fn(*a, **kw)
+    return _wrapped
+
+if hasattr(_hf, "hf_hub_download"):
+    _hf.hf_hub_download = _make_safe(_hf.hf_hub_download)
+
+try:
+    import huggingface_hub.utils as _utils
+    if hasattr(_utils, "hf_hub_download"):
+        _utils.hf_hub_download = _make_safe(_utils.hf_hub_download)
+except Exception:
+    pass
 # End patch
 
 import gradio as gr
@@ -578,6 +588,8 @@ class SoniTranslate(SoniTrCache):
                 if isinstance(subtitle_file, str)
                 else subtitle_file.name
             )
+            # SRT-first: disable diarization (we use the provided SRT segments)
+            diarization_model = "disable"
 
         if subtitle_file and SOURCE_LANGUAGE == "Automatic detection":
             raise Exception(
@@ -804,17 +816,18 @@ class SoniTranslate(SoniTrCache):
             ], {
                 "result": self.result
             }):
-                prog_disp("Diarizing...", 0.60, is_gui, progress=progress)
-                diarize_model_select = diarization_models[diarization_model]
-                self.result_diarize = diarize_speech(
-                    base_audio_wav if not self.vocals else self.vocals,
-                    self.result,
-                    min_speakers,
-                    max_speakers,
-                    YOUR_HF_TOKEN,
-                    diarize_model_select,
-                )
-                logger.debug("Diarize complete")
+                if diarization_model != "disable":
+                    prog_disp("Diarizing...", 0.60, is_gui, progress=progress)
+                    diarize_model_select = diarization_models[diarization_model]
+                    self.result_diarize = diarize_speech(
+                        base_audio_wav if not self.vocals else self.vocals,
+                        self.result,
+                        min_speakers,
+                        max_speakers,
+                        YOUR_HF_TOKEN,
+                        diarize_model_select,
+                    )
+                    logger.debug("Diarize complete")
             self.result_source_lang = copy.deepcopy(self.result_diarize)
 
             if not self.task_in_cache("translate", [
