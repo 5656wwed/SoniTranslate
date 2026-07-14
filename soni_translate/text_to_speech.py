@@ -1134,8 +1134,14 @@ def _load_zonos_model():
 
             print("[Zonos] mamba_ssm stub created (sys.modules, comprehensive)")
 
+        import sys
+        if '/content/Zonos' not in sys.path:
+            sys.path.insert(0, '/content/Zonos')
         from zonos.model import Zonos
-        from zonos.utils import DEFAULT_DEVICE
+        try:
+            from zonos.utils import DEFAULT_DEVICE
+        except ImportError:
+            DEFAULT_DEVICE = "cuda"
 
         model_path = "Zyphra/Zonos-v0.1-transformer"
         if os.path.exists(os.path.join(_ZONOS_MODEL_DRIVE, "config.json")):
