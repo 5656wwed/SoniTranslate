@@ -951,8 +951,20 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
     """Generate TTS using Kokoro — lightweight, high-quality, GPU-accelerated."""
     from kokoro import KPipeline
     from .language_configuration import KOKORO_VOICES_LIST
+    import re as _re
 
     filtered_segments = filtered_kokoro_segments["segments"]
+    starts_sorted = sorted(float(s["start"]) for s in filtered_segments)
+
+    def _slot_for(start, end):
+        start = float(start)
+        end = float(end)
+        nxt = [s for s in starts_sorted if s > start + 1e-6]
+        gap = 0.18  # reserved silence before next sentence
+        if nxt:
+            return max(0.35, nxt[0] - start - gap)
+        return max(0.35, end - start)
+
     sorted_segments = sorted(filtered_segments, key=lambda x: x["tts_name"])
 
     pipeline = None
@@ -961,13 +973,12 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
     for segment in tqdm(sorted_segments):
         text = segment["text"]
         start = segment["start"]
+        end = segment.get("end", float(start) + 3.0)
         tts_name = segment["tts_name"]
 
-        # Parse lang:voice from the voice list
         lang_voice = KOKORO_VOICES_LIST.get(tts_name, "a:af_heart")
         lang_code, voice = lang_voice.split(":")
 
-        # Recreate pipeline if language changes
         tts_key = lang_code
         if tts_key != current_key:
             current_key = tts_key
@@ -979,17 +990,25 @@ def segments_kokoro_tts(filtered_kokoro_segments, TRANSLATE_AUDIO_TO):
             pipeline = KPipeline(lang_code=lang_code)
 
         filename = f"audio/{start}.ogg"
-        # Clean text: remove stray periods from translation
-        # Pattern: "word." at sentence boundary → keep. "a. museum" → remove.
-        import re as _re
-        text = _re.sub(r'\.(\s+[A-Za-z])', r'\1', text)  # remove period before any word
-        text = _re.sub(r'\s+', ' ', text).strip()
-        logger.info(f"Kokoro [{voice}]: {text[:60]}... → {filename}")
+        text = _re.sub(r"\.(\s+[A-Za-z])", r"\1", text)
+        text = _re.sub(r"\s+", " ", text).strip()
+
+        # Natural pace first; only a little faster when the slot is tight
+        # (avoids harsh ffmpeg force-fit that sounds rushed)
+        slot = _slot_for(start, end)
+        est_sec = max(0.4, len(text) / 14.0)
+        speed = 0.97
+        if est_sec > slot:
+            speed = min(1.22, max(0.97, est_sec / slot))
+        speed = round(float(speed), 2)
+
+        logger.info(
+            f"Kokoro [{voice}] speed={speed} slot={slot:.2f}s: {text[:55]}... → {filename}"
+        )
 
         try:
-            generator = pipeline(text, voice=voice, speed=0.93)  # 0.93 = warmer
-            for _, _, audio in generator:  # (graphemes, phonemes, audio) — sr is fixed 24000
-                # Trim leading & trailing silence for cleaner timing
+            generator = pipeline(text, voice=voice, speed=speed)
+            for _, _, audio in generator:
                 audio_trimmed, _ = librosa.effects.trim(audio, top_db=25)
                 if len(audio_trimmed) > 0:
                     audio = audio_trimmed
@@ -1259,7 +1278,7 @@ def accelerate_segments(
         speakers_vits,
         speakers_coqui,
         speakers_vits_onnx,
-        speakers_openai_tts
+        speakers_openai_tts,
     ) = valid_speakers
 
     create_directories(f"{folder_output}/audio/")
@@ -1269,6 +1288,8 @@ def accelerate_segments(
     speakers_list = []
 
     max_count_segments_idx = len(result_diarize["segments"]) - 1
+    # Pause between sentences (no glue, no overlap)
+    SENTENCE_GAP = 0.18
 
     for i, segment in tqdm(enumerate(result_diarize["segments"])):
         text = segment["text"]  # noqa
@@ -1278,23 +1299,20 @@ def accelerate_segments(
 
         filename = f"audio/{start}.ogg"
 
-        # Bigger slot: full time until the next line starts (not just short SRT end).
-        # Keep a small pause so two lines don't glue together.
+        # Slot = time until next line, minus a real pause
         duration_true = max(0.2, float(end) - float(start))
         if i < max_count_segments_idx:
             next_start = float(result_diarize["segments"][i + 1]["start"])
-            duration_true = max(duration_true, next_start - float(start) - 0.08)
+            duration_true = max(0.2, next_start - float(start) - SENTENCE_GAP)
 
         duration_tts = librosa.get_duration(filename=filename)
         out_file = f"{folder_output}/{filename}"
 
-        # How much faster we need to go to fit the slot
         if duration_true <= 0:
             acc_percentage = 1.0
         else:
             acc_percentage = duration_tts / duration_true
 
-        # Optional smooth regulation (UI checkbox)
         if (
             acceleration_rate_regulation
             and acc_percentage >= 1.3
@@ -1302,45 +1320,48 @@ def accelerate_segments(
         ):
             try:
                 next_start = float(result_diarize["segments"][i + 1]["start"])
-                duration_true = max(duration_true, next_start - float(start) - 0.04)
+                duration_true = max(0.2, next_start - float(start) - 0.12)
                 acc_percentage = duration_tts / duration_true
             except Exception as error:
                 logger.error(str(error))
 
-        # IMPORTANT: old code treated up to +15% as "fine" (no speedup) → ends always overlapped.
-        # Only leave speed alone when it already fits (tiny 2% slack).
-        if acc_percentage <= 1.02:
-            if acc_percentage < 0.8:
-                acc_percentage = 0.8  # don't stretch too much if speech is short
-            else:
-                acc_percentage = 1.0
+        # Short speech: leave as-is so silence becomes the gap between sentences.
+        # (Old code stretched short clips and ate the pause.)
+        if acc_percentage <= 1.03:
+            acc_percentage = 1.0
         else:
-            # Cap for quality, but we force-fit below if still too long
-            if acc_percentage > max_accelerate_audio:
-                acc_percentage = float(max_accelerate_audio)
+            # One clean pass to exact fit — no double force-fit mush
+            # Soft quality cap: prefer max_accelerate, then exact if still needed
+            needed = acc_percentage
+            if needed <= float(max_accelerate_audio):
+                acc_percentage = needed
+            else:
+                # Still force-fit (no overlap), but log it
+                acc_percentage = needed
+                logger.info(
+                    f"Heavy fit {filename}: need x{needed:.2f} for slot {duration_true:.2f}s"
+                )
 
-        # Format read if need
         if speaker in speakers_edge:
             info_enc = sf.info(filename).format
         else:
             info_enc = "OGG"
 
-        # Apply acceleration into folder_output
         if acc_percentage == 1.0 and info_enc == "OGG":
             copy_files(filename, f"{folder_output}{os.sep}audio")
         else:
+            # Round lightly for ffmpeg stability, keep enough precision
+            acc_percentage = max(1.03, min(float(acc_percentage), 2.8))
             atempo = _atempo_filter_chain(acc_percentage)
             os.system(
                 f"ffmpeg -y -loglevel panic -i {filename} -filter:a {atempo} {out_file}"
             )
 
-        # FORCE FIT: if still longer than the slot, speed up again to exact length.
-        # This is what stops end-of-sentence overlap.
+        # Safety: if still slightly over (encoder/float), one exact touch-up
         try:
             duration_create = librosa.get_duration(filename=out_file)
-            if duration_create > duration_true * 1.02 and duration_true > 0.2:
-                force_rate = duration_create / duration_true
-                force_rate = min(max(force_rate, 1.02), 3.0)
+            if duration_create > duration_true * 1.03 and duration_true > 0.2:
+                force_rate = min(max(duration_create / duration_true, 1.03), 2.8)
                 tmp_force = out_file + ".fit.ogg"
                 atempo = _atempo_filter_chain(force_rate)
                 rc = os.system(
@@ -1356,17 +1377,6 @@ def accelerate_segments(
                     os.remove(tmp_force)
         except Exception as error:
             logger.error(f"Force-fit failed for {filename}: {error}")
-
-        if logger.isEnabledFor(logging.DEBUG):
-            try:
-                duration_create = librosa.get_duration(filename=out_file)
-            except Exception:
-                duration_create = -1
-            logger.debug(
-                f"acc_percen is {acc_percentage}, tts duration "
-                f"is {duration_tts}, new duration is {duration_create}"
-                f", for {filename}"
-            )
 
         audio_files.append(out_file)
         speaker = "TTS Speaker {:02d}".format(int(speaker[-2:]) + 1)
