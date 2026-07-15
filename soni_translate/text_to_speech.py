@@ -1271,47 +1271,53 @@ def accelerate_segments(
     max_count_segments_idx = len(result_diarize["segments"]) - 1
 
     for i, segment in tqdm(enumerate(result_diarize["segments"])):
-        text = segment["text"] # noqa
+        text = segment["text"]  # noqa
         start = segment["start"]
         end = segment["end"]
         speaker = segment["speaker"]
 
-        # find name audio
-        # if speaker in speakers_edge:
         filename = f"audio/{start}.ogg"
-        # elif speaker in speakers_bark + speakers_vits + speakers_coqui + speakers_vits_onnx:
-        #    filename = f"audio/{start}.wav" # wav
 
         # Bigger slot: full time until the next line starts (not just short SRT end).
+        # Keep a small pause so two lines don't glue together.
         duration_true = max(0.2, float(end) - float(start))
         if i < max_count_segments_idx:
             next_start = float(result_diarize["segments"][i + 1]["start"])
-            # Use almost the whole gap so sentence ends stop spilling into the next line
-            duration_true = max(duration_true, next_start - float(start) - 0.05)
+            duration_true = max(duration_true, next_start - float(start) - 0.08)
 
         duration_tts = librosa.get_duration(filename=filename)
+        out_file = f"{folder_output}/{filename}"
 
-        # Accelerate percentage
-        acc_percentage = duration_tts / duration_true if duration_true > 0 else 1.0
+        # How much faster we need to go to fit the slot
+        if duration_true <= 0:
+            acc_percentage = 1.0
+        else:
+            acc_percentage = duration_tts / duration_true
 
-        # Optional smooth regulation (UI checkbox) — softens heavy speedups a bit
-        if acceleration_rate_regulation and acc_percentage >= 1.3 and i < max_count_segments_idx:
+        # Optional smooth regulation (UI checkbox)
+        if (
+            acceleration_rate_regulation
+            and acc_percentage >= 1.3
+            and i < max_count_segments_idx
+        ):
             try:
                 next_start = float(result_diarize["segments"][i + 1]["start"])
-                duration_true = max(duration_true, next_start - float(start) - 0.02)
+                duration_true = max(duration_true, next_start - float(start) - 0.04)
                 acc_percentage = duration_tts / duration_true
             except Exception as error:
                 logger.error(str(error))
 
-        if acc_percentage > max_accelerate_audio:
-            acc_percentage = max_accelerate_audio
-        elif acc_percentage <= 1.15 and acc_percentage >= 0.8:
-            acc_percentage = 1.0
-        elif acc_percentage <= 0.79:
-            acc_percentage = 0.8
-
-        # Round
-        acc_percentage = round(acc_percentage + 0.0, 1)
+        # IMPORTANT: old code treated up to +15% as "fine" (no speedup) → ends always overlapped.
+        # Only leave speed alone when it already fits (tiny 2% slack).
+        if acc_percentage <= 1.02:
+            if acc_percentage < 0.8:
+                acc_percentage = 0.8  # don't stretch too much if speech is short
+            else:
+                acc_percentage = 1.0
+        else:
+            # Cap for quality, but we force-fit below if still too long
+            if acc_percentage > max_accelerate_audio:
+                acc_percentage = float(max_accelerate_audio)
 
         # Format read if need
         if speaker in speakers_edge:
@@ -1319,26 +1325,50 @@ def accelerate_segments(
         else:
             info_enc = "OGG"
 
-        # Apply aceleration or opposite to the audio file in folder_output folder
+        # Apply acceleration into folder_output
         if acc_percentage == 1.0 and info_enc == "OGG":
             copy_files(filename, f"{folder_output}{os.sep}audio")
         else:
             atempo = _atempo_filter_chain(acc_percentage)
             os.system(
-                f"ffmpeg -y -loglevel panic -i {filename} -filter:a {atempo} {folder_output}/{filename}"
+                f"ffmpeg -y -loglevel panic -i {filename} -filter:a {atempo} {out_file}"
             )
 
+        # FORCE FIT: if still longer than the slot, speed up again to exact length.
+        # This is what stops end-of-sentence overlap.
+        try:
+            duration_create = librosa.get_duration(filename=out_file)
+            if duration_create > duration_true * 1.02 and duration_true > 0.2:
+                force_rate = duration_create / duration_true
+                force_rate = min(max(force_rate, 1.02), 3.0)
+                tmp_force = out_file + ".fit.ogg"
+                atempo = _atempo_filter_chain(force_rate)
+                rc = os.system(
+                    f"ffmpeg -y -loglevel panic -i {out_file} -filter:a {atempo} {tmp_force}"
+                )
+                if rc == 0 and os.path.isfile(tmp_force):
+                    os.replace(tmp_force, out_file)
+                    logger.info(
+                        f"Force-fit {filename}: {duration_create:.2f}s → "
+                        f"slot {duration_true:.2f}s (x{force_rate:.2f})"
+                    )
+                elif os.path.isfile(tmp_force):
+                    os.remove(tmp_force)
+        except Exception as error:
+            logger.error(f"Force-fit failed for {filename}: {error}")
+
         if logger.isEnabledFor(logging.DEBUG):
-            duration_create = librosa.get_duration(
-                filename=f"{folder_output}/{filename}"
-            )
+            try:
+                duration_create = librosa.get_duration(filename=out_file)
+            except Exception:
+                duration_create = -1
             logger.debug(
                 f"acc_percen is {acc_percentage}, tts duration "
                 f"is {duration_tts}, new duration is {duration_create}"
                 f", for {filename}"
             )
 
-        audio_files.append(f"{folder_output}/{filename}")
+        audio_files.append(out_file)
         speaker = "TTS Speaker {:02d}".format(int(speaker[-2:]) + 1)
         speakers_list.append(speaker)
 
