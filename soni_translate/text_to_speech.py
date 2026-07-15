@@ -1227,6 +1227,23 @@ def audio_segmentation_to_voice(
     ]
 
 
+def _atempo_filter_chain(rate):
+    """Build ffmpeg atempo chain. Single atempo only allows 0.5–2.0."""
+    rate = float(rate)
+    if rate <= 0:
+        rate = 1.0
+    filters = []
+    r = rate
+    while r > 2.0 + 1e-9:
+        filters.append("atempo=2.0")
+        r /= 2.0
+    while r < 0.5 - 1e-9:
+        filters.append("atempo=0.5")
+        r /= 0.5
+    filters.append(f"atempo={round(r, 3)}")
+    return ",".join(filters)
+
+
 def accelerate_segments(
     result_diarize,
     max_accelerate_audio,
@@ -1265,38 +1282,24 @@ def accelerate_segments(
         # elif speaker in speakers_bark + speakers_vits + speakers_coqui + speakers_vits_onnx:
         #    filename = f"audio/{start}.wav" # wav
 
-        # duration
-        duration_true = end - start
+        # Bigger slot: full time until the next line starts (not just short SRT end).
+        duration_true = max(0.2, float(end) - float(start))
+        if i < max_count_segments_idx:
+            next_start = float(result_diarize["segments"][i + 1]["start"])
+            # Use almost the whole gap so sentence ends stop spilling into the next line
+            duration_true = max(duration_true, next_start - float(start) - 0.05)
+
         duration_tts = librosa.get_duration(filename=filename)
 
         # Accelerate percentage
-        acc_percentage = duration_tts / duration_true
+        acc_percentage = duration_tts / duration_true if duration_true > 0 else 1.0
 
-        # Smoth
-        if acceleration_rate_regulation and acc_percentage >= 1.3:
+        # Optional smooth regulation (UI checkbox) — softens heavy speedups a bit
+        if acceleration_rate_regulation and acc_percentage >= 1.3 and i < max_count_segments_idx:
             try:
-                next_segment = result_diarize["segments"][
-                    min(max_count_segments_idx, i + 1)
-                ]
-                next_start = next_segment["start"]
-                next_speaker = next_segment["speaker"]
-                duration_with_next_start = next_start - start
-
-                if duration_with_next_start > duration_true:
-                    extra_time = duration_with_next_start - duration_true
-
-                    if speaker == next_speaker:
-                        # half
-                        smoth_duration = duration_true + (extra_time * 0.5)
-                    else:
-                        # 7/10
-                        smoth_duration = duration_true + (extra_time * 0.7)
-                    logger.debug(
-                        f"Base acc: {acc_percentage}, "
-                        f"smoth acc: {duration_tts / smoth_duration}"
-                    )
-                    acc_percentage = max(1.2, (duration_tts / smoth_duration))
-
+                next_start = float(result_diarize["segments"][i + 1]["start"])
+                duration_true = max(duration_true, next_start - float(start) - 0.02)
+                acc_percentage = duration_tts / duration_true
             except Exception as error:
                 logger.error(str(error))
 
@@ -1320,8 +1323,9 @@ def accelerate_segments(
         if acc_percentage == 1.0 and info_enc == "OGG":
             copy_files(filename, f"{folder_output}{os.sep}audio")
         else:
+            atempo = _atempo_filter_chain(acc_percentage)
             os.system(
-                f"ffmpeg -y -loglevel panic -i {filename} -filter:a atempo={acc_percentage} {folder_output}/{filename}"
+                f"ffmpeg -y -loglevel panic -i {filename} -filter:a {atempo} {folder_output}/{filename}"
             )
 
         if logger.isEnabledFor(logging.DEBUG):
