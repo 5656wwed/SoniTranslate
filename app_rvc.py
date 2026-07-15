@@ -562,6 +562,16 @@ class SoniTranslate(SoniTrCache):
                 "original language (Source language)"
             )
 
+        # SRT = final script. Never re-translate / re-diarize it.
+        if subtitle_file:
+            diarization_model = "disable"
+            min_speakers = 1
+            max_speakers = 1
+            logger.info(
+                "SRT mode: use subtitle text as-is "
+                "(no translation, no diarization)"
+            )
+
         if not media_file and subtitle_file:
             diarization_model = "disable"
             media_file = "audio_support.wav"
@@ -698,7 +708,10 @@ class SoniTranslate(SoniTrCache):
                     audio = whisperx.load_audio(
                         base_audio_wav if not self.vocals else self.vocals
                     )
-                    self.result = srt_file_to_segments(subtitle_file)
+                    # speaker=True → SPEAKER_00 on every line (no diarize needed)
+                    self.result = srt_file_to_segments(
+                        subtitle_file, speaker=True
+                    )
                     self.result["language"] = SOURCE_LANGUAGE
                 else:
                     prog_disp(
@@ -777,44 +790,68 @@ class SoniTranslate(SoniTrCache):
                 min_speakers,
                 max_speakers,
                 YOUR_HF_TOKEN[:len(YOUR_HF_TOKEN)//2],
-                diarization_model
+                diarization_model,
+                bool(subtitle_file),
             ], {
                 "result": self.result
             }):
-                prog_disp("Diarizing...", 0.60, is_gui, progress=progress)
-                diarize_model_select = diarization_models[diarization_model]
-                self.result_diarize = diarize_speech(
-                    base_audio_wav if not self.vocals else self.vocals,
-                    self.result,
-                    min_speakers,
-                    max_speakers,
-                    YOUR_HF_TOKEN,
-                    diarize_model_select,
-                )
-                logger.debug("Diarize complete")
+                if subtitle_file or diarization_model == "disable":
+                    prog_disp(
+                        "SRT speakers...", 0.60, is_gui, progress=progress
+                    )
+                    self.result_diarize = copy.deepcopy(self.result)
+                    for seg in self.result_diarize["segments"]:
+                        seg.setdefault("speaker", "SPEAKER_00")
+                    logger.info("SRT mode: skipped diarization")
+                else:
+                    prog_disp("Diarizing...", 0.60, is_gui, progress=progress)
+                    diarize_model_select = diarization_models[diarization_model]
+                    self.result_diarize = diarize_speech(
+                        base_audio_wav if not self.vocals else self.vocals,
+                        self.result,
+                        min_speakers,
+                        max_speakers,
+                        YOUR_HF_TOKEN,
+                        diarize_model_select,
+                    )
+                    logger.debug("Diarize complete")
             self.result_source_lang = copy.deepcopy(self.result_diarize)
 
             if not self.task_in_cache("translate", [
                 TRANSLATE_AUDIO_TO,
-                translate_process
+                translate_process,
+                bool(subtitle_file),
             ], {
                 "result_diarize": self.result_diarize
             }):
-                prog_disp("Translating...", 0.70, is_gui, progress=progress)
-                lang_source = (
-                    self.align_language
-                    if self.align_language
-                    else SOURCE_LANGUAGE
-                )
-                self.result_diarize["segments"] = translate_text(
-                    self.result_diarize["segments"],
-                    TRANSLATE_AUDIO_TO,
-                    translate_process,
-                    chunk_size=1800,
-                    source=lang_source,
-                )
-                logger.debug("Translation complete")
-                logger.debug(self.result_diarize)
+                if subtitle_file:
+                    # Keep exact SRT text — no Google/GPT rewrite
+                    prog_disp(
+                        "SRT text ready (no translate)...",
+                        0.70,
+                        is_gui,
+                        progress=progress,
+                    )
+                    logger.info("SRT mode: skipped translation")
+                    logger.debug(self.result_diarize)
+                else:
+                    prog_disp(
+                        "Translating...", 0.70, is_gui, progress=progress
+                    )
+                    lang_source = (
+                        self.align_language
+                        if self.align_language
+                        else SOURCE_LANGUAGE
+                    )
+                    self.result_diarize["segments"] = translate_text(
+                        self.result_diarize["segments"],
+                        TRANSLATE_AUDIO_TO,
+                        translate_process,
+                        chunk_size=1800,
+                        source=lang_source,
+                    )
+                    logger.debug("Translation complete")
+                    logger.debug(self.result_diarize)
 
         if get_translated_text:
 
